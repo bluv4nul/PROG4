@@ -1,66 +1,72 @@
 import requests
 import json
 import csv
+import yaml
+from typing import Any
+from abc import *
 
+CBR_URL = "https://www.cbr-xml-daily.ru/daily_json.js"
 
-class Currencies:
+class Currencies(ABC):
     """
-    class Сomponent():
-
     Базовое поведение программы.
+
+    Имеет два метода - получение данныных валют getCurrencies() и создание файла createFile()
+
+    Реализован с использованием ABC
     """
 
     def __init__(self) -> None:
-        self.currencies = None
-        self.date = None
         pass
 
-    def getCurrencies(self) -> dict:
+    @abstractmethod
+    def getCurrencies(self) -> Any:
         pass
-
+    
+    @abstractmethod
     def createFile(self) -> None:
         pass
-
 
 class GetCurrencies(Currencies):
     """
     class concreteComponent(Component):
+    
+    Принимает Currencies как родительский метод
 
-    Класс возвращающий dict (json)
-    А так же создающий соответствующий файл
-
-    Принимает класс Currencies
+    getCurrencies() - в данном случае возвращает dict, что соотвествует json файлам
     """
 
-    def getCurrencies(self, url="https://www.cbr-xml-daily.ru/daily_json.js") -> dict:
+    def getCurrencies(self, url=CBR_URL) -> dict:
 
         response = requests.get(url)
         response.raise_for_status()
 
-        self.currencies = response.json()
+        self.data = response.json()
 
-        if "Valute" not in self.currencies:
+        if "Valute" not in self.data:
             raise KeyError(
                 "Данные повреждены или получены неправильно, отсутвует информация о валютах"
             )
         else:
-            self.date = self.currencies["Date"]
-            self.currencies = self.currencies["Valute"]
-            return self.currencies
+            self.data = self.data["Valute"]
+            return self.data
 
     def createFile(self) -> None:
-        if self.currencies is None:
-            raise ValueError("Переменная не имеет данных о валютах")
-        else:
+        if hasattr(self, "data"):
             with open("./files/result_in_json.json", "w", encoding="utf-8") as file:
-                json.dump(self.currencies, file, ensure_ascii=False)
-
-
+                json.dump(self.data, file, ensure_ascii=False)
+        else:
+            raise ValueError("Сначала вызовите getCurrencies()")
+            
 class Convert(Currencies):
     """
-    class Decorator():
-
     Декоратор, описывающий общее поведение декораторов
+
+    Так же имеет два метода:
+
+    getCurrencies() - переводит в нужный формат и возвращать значение
+
+    createFile() - создает файл в нужном формате
     """
 
     _currencies: Currencies = None
@@ -68,42 +74,79 @@ class Convert(Currencies):
     def __init__(self, currencies: Currencies) -> None:
         self._currencies = currencies
 
-    @property
     def currencies(self) -> Currencies:
         return self._currencies
 
-    def convert(self) -> dict:
-        pass
+    def getCurrencies(self) -> object:
+        return self._currencies.getCurrencies()
 
     def createFile(self) -> None:
-        pass
-
+        return self._currencies.createFile()
 
 class ConvertToCSV(Convert):
     """
-    class ConcreteDecoratorA():
-
     Декоратор переводящий JSON формат в CSV формат
+
+    Наследует класс Convert
+
+    getCurrencies() - в этом случает вовзвращает list[dict[str, any]], что соотвествует формату csv
+        [{"key": value, ...}, ...]
+        Метод сохраняет переменные self._column и self._rows для дальнейшей удобной записи в файл
+    
+    createFile() - создает файл в формате csv
     """
 
-    def __init__(self, currencies):
-        self.csv_data = []
-
-    def convert(self) -> dict:
+    def getCurrencies(self) -> list[dict[str, Any]]:
 
         data = self._currencies.getCurrencies()
+        if(data):
+            first_key = next(iter(data))
 
-        if data:
-            first_currency = list(data.values())[0]
-            columns = list(first_currency.keys())
+            self._columns = ["ID_Валюты"] + list(data[first_key].keys())
 
-        self._convert_to_csv(data)
+            self._rows = []
 
-        columns = [key for key in self._currencies["USD"]]
+            for key in data:
+                row = {"ID_Валюты": key}
+                info = data[key]
+                for i in info:
+                    row[i] = info[i]
+                self._rows.append(row)
+            
+            return self._rows
+        else: 
+            raise ValueError("Нет данных о валютах")
 
-        with open("./files/result_in_csv.csv", "w") as file:
-            writer = csv.DictWriter(f=file, fieldnames=columns)
+    def createFile(self):
+        if (hasattr(self, "_rows") and hasattr(self, "_columns")):
+            with open("./files/result_in_csv.csv", "w", encoding="utf-8", newline="") as file:
+                writer = csv.DictWriter(file, fieldnames=self._columns, delimiter=";")
+                writer.writeheader()
+                writer.writerows(self._rows)
+        else:
+            raise ValueError("Сначала вызоваите getCurrencies")
 
-            writer.writeheader()
+class ConvertToYAML(Convert):
+    """
+    Декоратор переводящий JSON формат в YAML формат
 
-            writer.writerows(row for row in self._currencies)
+    Наследует класс Convert
+
+    getCurrencies() - в этом случает вовзвращает dict, что соотвествует формату json, по факту являющимся более строгим Yaml`ом
+        Метод сохраняет переменную self.data для дальнейшей удобной записи в файл
+    
+    createFile() - создает файл в формате Yaml
+    """
+
+    def getCurrencies(self) -> dict:
+
+        self.data = self._currencies.getCurrencies()
+
+        return self.data
+
+    def createFile(self) -> None:
+        if (hasattr(self, "data")):
+            with open("./files/result_in_yaml.yaml", "w", encoding="utf-8") as file:
+                yaml.dump(data=self.data, stream=file, allow_unicode=True)
+        else:
+            raise ValueError("Сначала вызовите getCurrencies")
