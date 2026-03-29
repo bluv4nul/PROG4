@@ -1,23 +1,37 @@
-from sqlalchemy.orm import Session
-from models.models import Currency
+"""CRUD-операции для модели Currency."""
+
 from sqlalchemy import select
 from typing import Sequence
-from get_currencies_from_api import get_currencies_from_api
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from models.models import Currency
+from .get_currencies_from_api import get_currencies_from_api
 
 
-def get_currencies(session: Session) -> Sequence[Currency]:
+async def get_currencies(session: AsyncSession) -> Sequence[Currency]:
+    """Возвращает текущие курсы валют из базы данных."""
 
     stmt = select(Currency)
-    result = session.execute(stmt)
-
+    result = await session.execute(stmt)
     return result.scalars().all()
 
 
-def update_currency(session: Session):
+async def update_currencies(session: AsyncSession) -> Sequence[Currency]:
+    """Обновляет курсы валют из внешнего API и возвращает актуальные данные."""
 
-    currencies = get_currencies_from_api()
+    fetched = await get_currencies_from_api()
 
-    for currency in currencies:
-        new_currency = Currency(
-            code=currency["code"], name=currency["name"], value=currency["value"]
-        )
+    for incoming in fetched:
+        stmt = select(Currency).where(Currency.code == incoming.code)
+        result = await session.execute(stmt)
+        existing = result.scalar_one_or_none()
+
+        if existing is None:
+            session.add(incoming)
+        else:
+            existing.name = incoming.name
+            existing.value = incoming.value
+
+        await session.commit()
+
+    return await get_currencies(session)

@@ -1,59 +1,75 @@
-from sqlalchemy.orm import Session
-from models.models import User
+"""CRUD-операции для модели User."""
+
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Sequence
 
+from models.models import Subscription, User
 
-def create_user(session: Session, username: str, email: str) -> User:
+
+async def create_user(session: AsyncSession, username: str, email: str) -> User:
+    """Создает нового пользователя и сохраняет его в базе данных."""
+
     user = User(username=username, email=email)
 
     session.add(user)
-    session.commit()
-    session.refresh(user)
+    await session.commit()
+    await session.refresh(user)
 
     return user
 
 
-def get_users(session: Session) -> Sequence[User]:
+async def get_users(session: AsyncSession) -> Sequence[User]:
+    """Возвращает всех пользователей, хранящихся в базе данных."""
 
     stmt = select(User)
-    result = session.execute(stmt)
+    result = await session.execute(stmt)
 
     return result.scalars().all()
 
 
-def get_user_by_id(session: Session, user_id: int) -> User | None:
+async def get_user_by_id(session: AsyncSession, user_id: int) -> dict | None:
+    """Возвращает пользователя по его идентификатору."""
 
     stmt = select(User).where(User.id == user_id)
-    result = session.execute(stmt)
+    user_info = await session.execute(stmt)
+    stmt = select(Subscription).where(Subscription.user_id == user_id)
+    subscription = await session.execute(stmt)
 
-    return result.scalar_one_or_none()
+    return {
+        "user": user_info.scalar_one_or_none(),
+        "subscriptions": subscription.scalars().all(),
+    }
 
 
-def delete_user_by_id(session: Session, user_id: int) -> None:
-    user = get_user_by_id(session=session, user_id=user_id)
+async def delete_user_by_id(session: AsyncSession, user_id: int) -> None:
+    """Удаляет пользователя по идентификатору."""
+
+    user = await get_user_by_id(session=session, user_id=user_id)
     if user is None:
         raise ValueError("Пользователь не найден")
 
-    session.delete(user)
-    session.commit()
+    await session.delete(user)
+    await session.commit()
 
 
-def update_user_email(session: Session, user_id: int, new_email: str) -> User:
-    user = get_user_by_id(session=session, user_id=user_id)
+async def update_user(
+    session: AsyncSession,
+    user_id: int,
+    new_email: str | None = None,
+    new_username: str | None = None,
+) -> User:
+    """Обновляет информацию о пользователе."""
+
+    user = await get_user_by_id(session=session, user_id=user_id)
     if user is None:
         raise ValueError("Пользователь не найден")
 
-    user.email = new_email
-    session.commit()
-    return user
+    if new_email is not None:
+        user.email = new_email
+    if new_username is not None:
+        user.username = new_username
 
-
-def update_user_name(session: Session, user_id: int, new_username: str) -> User:
-    user = get_user_by_id(session=session, user_id=user_id)
-    if user is None:
-        raise ValueError("Пользователь не найден")
-
-    user.username = new_username
-    session.commit()
+    await session.commit()
+    await session.refresh(user)
     return user
