@@ -1,12 +1,6 @@
+"""Модели для Subscriptions"""
+
 from pydantic import BaseModel, ConfigDict
-
-
-class SubscriptionRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    user_id: int
-    currency_id: int
 
 
 class SubscriptionCreate(BaseModel):
@@ -14,6 +8,9 @@ class SubscriptionCreate(BaseModel):
     currency_id: int
 
 
-class SubscriptionDelete(BaseModel):
+class SubscriptionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
     user_id: int
     currency_id: int

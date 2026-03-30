@@ -5,7 +5,7 @@ from db.database import get_session
 from services.crud_user import (
     create_user,
     get_users,
-    get_user_by_id,
+    get_user_by_id_details,
     delete_user_by_id,
     update_user,
 )
@@ -35,7 +35,7 @@ async def read_user_endpoint(
 ):
     """Получить информацию о конкретном пользователе."""
 
-    return await get_user_by_id(session, user_id)
+    return await get_user_by_id_details(session, user_id)
 
 
 @router.put("/{user_id}/", response_model=UserRead)

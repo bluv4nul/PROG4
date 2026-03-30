@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Sequence
 
-from models.models import Subscription, User
+from models.models import Subscription, User, Currency
 
 
 async def create_user(session: AsyncSession, username: str, email: str) -> User:
@@ -28,24 +28,50 @@ async def get_users(session: AsyncSession) -> Sequence[User]:
     return result.scalars().all()
 
 
-async def get_user_by_id(session: AsyncSession, user_id: int) -> dict | None:
-    """Возвращает пользователя по его идентификатору."""
+async def get_user_by_id_details(session: AsyncSession, user_id: int) -> dict | None:
+    """Возвращает информацию о пользователе и о его подписках"""
 
-    stmt = select(User).where(User.id == user_id)
-    user_info = await session.execute(stmt)
-    stmt = select(Subscription).where(Subscription.user_id == user_id)
-    subscription = await session.execute(stmt)
+    user_info = (
+        await session.execute(select(User).where(User.id == user_id))
+    ).scalar_one_or_none()
+
+    subscriptions = (
+        (
+            await session.execute(
+                select(Subscription).where(Subscription.user_id == user_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    if len(subscriptions) == 0:
+        return {
+            "user": user_info,
+            "subscriptions": "Пользователь не подписан на валюты",
+        }
+
+    currency_ids = list({s.currency_id for s in subscriptions})
+
+    currencies_info = (
+        (await session.execute(select(Currency).where(Currency.id.in_(currency_ids))))
+        .scalars()
+        .all()
+    )
 
     return {
-        "user": user_info.scalar_one_or_none(),
-        "subscriptions": subscription.scalars().all(),
+        "user": user_info,
+        "subscriptions": currencies_info,
     }
 
 
 async def delete_user_by_id(session: AsyncSession, user_id: int) -> None:
     """Удаляет пользователя по идентификатору."""
 
-    user = await get_user_by_id(session=session, user_id=user_id)
+    user = (
+        await session.execute(select(User).where(User.id == user_id))
+    ).scalar_one_or_none()
+
     if user is None:
         raise ValueError("Пользователь не найден")
 
@@ -61,7 +87,10 @@ async def update_user(
 ) -> User:
     """Обновляет информацию о пользователе."""
 
-    user = await get_user_by_id(session=session, user_id=user_id)
+    user = (
+        await session.execute(select(User).where(User.id == user_id))
+    ).scalar_one_or_none()
+
     if user is None:
         raise ValueError("Пользователь не найден")
 
