@@ -75,7 +75,8 @@ class CurrencySchema(BaseModel)  #информация о валюте
 
 **subscription_schema.py:**
 ```python 
-class SubscriptionSchema(BaseModel) #создание подписки
+class SubscriptionCreate(BaseModel) #Создание подписки
+class SubscriptionRead(BaseModel) #Чтение подписки
 ```
 
 
