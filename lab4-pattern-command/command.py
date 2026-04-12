@@ -2,16 +2,6 @@ from abc import ABC, abstractmethod
 from sqlite3 import Date
 
 
-class Reader:
-    # Заглушка
-    pass
-
-
-class Book:
-    # Заглушка
-    pass
-
-
 class Command(ABC):
     """
     Интерфейс команлы
