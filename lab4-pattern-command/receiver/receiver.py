@@ -1,40 +1,38 @@
 from models.order import Order, OrderStatus
 
-Orders = {}
-
 
 class OrderService:
-    @staticmethod
-    def get_all_orders() -> list[Order]:
-        if not Orders:
+    def __init__(self):
+        self._orders = {}
+
+    def get_all_orders(self) -> list[Order]:
+        if not self._orders:
             return []
-        return list(Orders.values())
+        return list(self._orders.values())
 
-    @staticmethod
-    def get_order_by_id(order_id: int) -> Order:
-        if order_id not in Orders:
+    def get_order_by_id(self, order_id: int) -> Order:
+        if order_id not in self._orders:
             raise ValueError("ORDER NOT FOUND!")
-        return Orders[order_id]
+        return self._orders[order_id]
 
-    @staticmethod
     def create_order(
+        self,
         customer_name: str,
         address: str,
         total_amount: float,
     ) -> Order:
-        order_id = max(Orders.keys(), default=0) + 1
+        order_id = max(self._orders.keys(), default=0) + 1
         order = Order(
             order_id=order_id,
             customer_name=customer_name,
             address=address,
             total_amount=total_amount,
         )
-        Orders[order.order_id] = order
+        self._orders[order.order_id] = order
         return order
 
-    @staticmethod
-    def change_order_address(order_id: int, address: str) -> Order:
-        order = OrderService.get_order_by_id(order_id)
+    def change_order_address(self, order_id: int, address: str) -> Order:
+        order = self.get_order_by_id(order_id)
         if (
             order.status == OrderStatus.CANCELLED
             or order.status == OrderStatus.CONFIRMED
@@ -43,9 +41,8 @@ class OrderService:
         order.address = address
         return order
 
-    @staticmethod
-    def apply_discount(order_id: int, discount_percent: float) -> Order:
-        order = OrderService.get_order_by_id(order_id)
+    def apply_discount(self, order_id: int, discount_percent: float) -> Order:
+        order = self.get_order_by_id(order_id)
         if (
             order.status == OrderStatus.CANCELLED
             or order.status == OrderStatus.CONFIRMED
@@ -54,9 +51,8 @@ class OrderService:
         order.discount_percent = discount_percent
         return order
 
-    @staticmethod
-    def confirm_order(order_id: int) -> Order:
-        order = OrderService.get_order_by_id(order_id)
+    def confirm_order(self, order_id: int) -> Order:
+        order = self.get_order_by_id(order_id)
         if order.status == OrderStatus.CANCELLED:
             raise ValueError("ORDER CANNOT BE CHANGED!")
         if order.status == OrderStatus.CONFIRMED:
@@ -64,9 +60,8 @@ class OrderService:
         order.status = OrderStatus.CONFIRMED
         return order
 
-    @staticmethod
-    def cancel_order(order_id: int) -> Order:
-        order = OrderService.get_order_by_id(order_id)
+    def cancel_order(self, order_id: int) -> Order:
+        order = self.get_order_by_id(order_id)
         if order.status == OrderStatus.CANCELLED:
             raise ValueError("ALREADY CANCELLED!")
         order.status = OrderStatus.CANCELLED

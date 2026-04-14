@@ -87,23 +87,24 @@ class Order:
 
 ```python
 class OrderService:
-    @staticmethod
-    def create_order(customer_name: str, address: str, total_amount: float) -> Order:
-        order_id = max(Orders.keys(), default=0) + 1
+    def __init__(self):
+        self._orders = {}  # Состояние инкапсулировано в экземпляре
+
+    def create_order(self, customer_name: str, address: str, total_amount: float) -> Order:
+        order_id = max(self._orders.keys(), default=0) + 1
         order = Order(order_id, customer_name, address, total_amount)
-        Orders[order_id] = order
+        self._orders[order_id] = order
         return order
 
-    @staticmethod
-    def confirm_order(order_id: int) -> Order:
-        order = OrderService.get_order_by_id(order_id)
+    def confirm_order(self, order_id: int) -> Order:
+        order = self.get_order_by_id(order_id)
         if order.status == OrderStatus.CANCELLED:
             raise ValueError("ORDER CANNOT BE CHANGED!")
         order.status = OrderStatus.CONFIRMED
         return order
 ```
 
-Receiver знает, как выполнять операции, но не знает, кто их вызывает.
+Receiver теперь является обычным классом с инкапсулированным состоянием.
 
 ### 3. Команды (`commands/`)
 
